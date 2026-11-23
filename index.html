@@ -49,10 +49,20 @@ button.ghost{background:#fff;box-shadow:0 4px 0 #b9a98f}
 .card b{font-weight:400;font-size:19px}
 kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0 6px;border-radius:6px;background:light-dark(#efd9b0,#4a3524);margin:0 1px}
 .touch{display:none;justify-content:space-between;gap:10px;margin-top:22px;user-select:none;-webkit-user-select:none}
-.touch .g{display:flex;gap:10px}
+.touch .g{display:flex;gap:10px;align-items:center}
+.stick{position:relative;width:136px;height:136px;border-radius:50%;flex:none;touch-action:none;background:radial-gradient(circle at 50% 42%,#4d525a,#24272b 72%);box-shadow:inset 0 5px 12px rgba(0,0,0,.55),0 5px 0 #17191c,0 10px 18px rgba(0,0,0,.25)}
+.stick::before{content:"";position:absolute;inset:14px;border-radius:50%;border:2px dashed rgba(255,255,255,.12)}
+.knob{position:absolute;left:50%;top:50%;width:66px;height:66px;margin:-33px 0 0 -33px;border-radius:50%;background:radial-gradient(circle at 42% 36%,#7a8089,#3a3e45 62%,#26292e);box-shadow:0 7px 12px rgba(0,0,0,.5),inset 0 -4px 0 rgba(0,0,0,.35);transition:transform .12s ease-out;pointer-events:none}
+.knob::after{content:"";position:absolute;inset:12px;border-radius:50%;background:radial-gradient(circle at 50% 60%,#2e3237,#454a52);box-shadow:inset 0 3px 5px rgba(0,0,0,.5)}
+.stick.drag .knob{transition:none}
+.pad{display:grid!important;grid-template-columns:74px 74px;grid-template-rows:auto auto;gap:2px 12px}
+.touch .xb{width:74px;height:74px;min-width:0;min-height:0;padding:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;font:700 30px/1 system-ui,sans-serif;background:radial-gradient(circle at 40% 32%,#4a4e55,#1f2124 70%);box-shadow:0 5px 0 #121314,0 8px 14px rgba(0,0,0,.3)}
+.touch .xb small{font:400 11px/1 "Jua",sans-serif;color:#e8e2d6;margin-top:4px}
+.touch .xb:active{transform:translateY(4px);box-shadow:0 1px 0 #121314}
+.xb.a{color:#6fd65c;grid-column:1;grid-row:2}.xb.b{color:#ff5d5d;grid-column:2;grid-row:1}
 .touch button{min-width:72px;min-height:64px;font-size:22px;touch-action:none}
 @media (pointer:coarse){.touch{display:flex}}
-@media(max-width:600px){.crate{padding:7px;border-radius:12px}.touch button{min-width:60px;padding:6px 10px}}
+@media(max-width:600px){.crate{padding:7px;border-radius:12px}}
 /* 세로 폰: 안내창을 게임 화면 아래 패널로 */
 @media(max-width:700px) and (orientation:portrait){
   .ov{position:static;background:#6b4524;padding:18px 14px 20px;gap:10px}
@@ -72,7 +82,7 @@ kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0
   .touch{display:contents}
   .touch .g{flex-direction:column;grid-row:1}
   .touch .g:first-child{grid-column:1}.touch .g:last-child{grid-column:3}
-  .touch button{min-width:64px;min-height:58px;font-size:18px;padding:6px 8px}
+  .stick{width:124px;height:124px}.pad{grid-template-columns:64px 64px}.touch .xb{width:64px;height:64px;font-size:26px}
   .ov{gap:8px;padding:10px}.ov h2{font-size:30px}.ov p{font-size:15px}
   .ov button{min-height:44px;font-size:16px;padding:6px 14px}
 }
@@ -99,8 +109,8 @@ kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0
   </div></div>
 
   <div class="touch" id="touch">
-    <div class="g"><button data-k="left" aria-label="왼쪽">◀</button><button data-k="right" aria-label="오른쪽">▶</button></div>
-    <div class="g"><button data-k="spike">스파이크</button><button data-k="jump">점프</button></div>
+    <div class="g"><div class="stick" id="stick" role="group" aria-label="이동 스틱 (위로 밀면 점프)"><div class="knob"></div></div></div>
+    <div class="g pad"><button data-k="spike" class="xb b" aria-label="스파이크">B<small>스파이크</small></button><button data-k="jump" class="xb a" aria-label="점프">A<small>점프</small></button></div>
   </div>
   </div>
   <p class="rot">폰을 가로로 돌리면 화면이 더 크게 보여요</p>
@@ -145,6 +155,17 @@ function onKey(e,down){
 }
 addEventListener('keydown',e=>onKey(e,true));addEventListener('keyup',e=>onKey(e,false));
 addEventListener('blur',()=>{for(const p of P)p.in={}});
+{ // 아날로그 스틱: 좌우로 기울이면 이동, 위로 튕기면 점프
+  const st=document.getElementById('stick'),kn=st.querySelector('.knob');let sid=null,curL=false,curR=false,upOn=false;
+  const setDir=(l,r)=>{if(l!==curL){curL=l;press(0,'left',l)}if(r!==curR){curR=r;press(0,'right',r)}};
+  const mv=e=>{const b=st.getBoundingClientRect(),R=b.width/2;let dx=e.clientX-b.left-R,dy=e.clientY-b.top-R;const m=R*.58,d=Math.hypot(dx,dy);
+    if(d>m){dx*=m/d;dy*=m/d}kn.style.transform=`translate(${dx}px,${dy}px)`;const nx=dx/m,ny=dy/m;setDir(nx<-.3,nx>.3);
+    const up=ny<-.62;if(up&&!upOn){press(0,'jump',true);press(0,'jump',false)}upOn=up};
+  const end=e=>{if(e.pointerId!==sid)return;sid=null;st.classList.remove('drag');kn.style.transform='';setDir(false,false);upOn=false};
+  st.addEventListener('pointerdown',e=>{e.preventDefault();if(sid!==null)return;sid=e.pointerId;try{st.setPointerCapture(sid)}catch(x){}st.classList.add('drag');mv(e)});
+  st.addEventListener('pointermove',e=>{if(e.pointerId===sid)mv(e)});
+  st.addEventListener('pointerup',end);st.addEventListener('pointercancel',end);st.addEventListener('lostpointercapture',end);
+}
 document.querySelectorAll('#touch button').forEach(b=>{
   const k=b.dataset.k;
   b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture?.(e.pointerId);press(0,k,true)});
@@ -164,7 +185,7 @@ function start(m){
 /* ---------- 온라인 (WebRTC / PeerJS) ----------
    방장은 고정된 슬롯 ID(PREFIX+번호) 중 빈 곳을 차지하고, 참가자는 슬롯들을 훑어서 열린 방 목록을 만든다.
    경기 계산은 방장 기기에서 하고, 상태를 초당 30번 친구에게 보낸다. */
-const PREFIX='potato-vb-2611-',SLOTS=10,VER='web2';
+const PREFIX='potato-vb-2611-',SLOTS=10,VER='web3';
 const qs=new URLSearchParams(location.search),psrv=qs.get('ps');
 const PEER_OPTS=psrv?{host:psrv.split(':')[0],port:+(psrv.split(':')[1]||9000),path:'/',secure:false,debug:0}:{debug:0};
 let code='',remote=null,gin={},gj=0,gs=0,lastJ=0,lastS=0,sfxN=0,sfxF=0,seenSfx=-1,hostSeen=false,lastSt=-1;
