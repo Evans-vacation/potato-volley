@@ -23,9 +23,11 @@ h1{font-weight:400;font-size:clamp(30px,5vw,44px);line-height:1.05;margin:0 0 6p
 .screen{position:relative;border-radius:10px;overflow:hidden;background:#8fd3f4}
 .stage{aspect-ratio:16/9}
 canvas{display:block;width:100%;height:100%;touch-action:none}
-.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(40,25,10,.45);color:#fff;text-align:center;padding:16px;overflow-y:auto}
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:12px;background:rgba(40,25,10,.45);color:#fff;text-align:center;padding:16px;overflow-y:auto}
 .rot{display:none;margin:12px 0 0;text-align:center;opacity:.75;font-size:15px}
 .ov[hidden]{display:none}
+.toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(30,20,10,.85);color:#fff;padding:8px 16px;border-radius:999px;font-size:15px;white-space:nowrap;pointer-events:none}
+.toast[hidden]{display:none}
 #diag{font-size:13px;opacity:.85}#diag:empty{display:none}
 .ov h2{font-weight:400;font-size:clamp(28px,6vw,52px);line-height:1.05;margin:0;text-shadow:0 3px 0 #6b4524}
 .ov p{margin:0;font-size:clamp(14px,2.2vw,17px)}
@@ -35,6 +37,10 @@ button:hover{filter:brightness(1.06)}button:active{transform:translateY(3px);box
 button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 button.alt{background:#f0a3c2;box-shadow:0 4px 0 #a34d73}
 button.ghost{background:#fff;box-shadow:0 4px 0 #b9a98f}
+.speed{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.speed span{font-size:16px;margin-right:4px}
+.speed button{min-height:40px;padding:4px 14px;font-size:16px;background:rgba(255,255,255,.85);box-shadow:0 3px 0 #b9a98f}
+.speed button[aria-checked=true]{background:#ff7a2f;color:#fff;box-shadow:0 3px 0 #b0501a}
 .nick{display:flex;align-items:center;gap:8px;justify-content:center;font-size:16px}
 .nick input{font:inherit;font-size:17px;width:9em;min-height:44px;border:0;border-radius:12px;padding:0 12px;background:#fff;color:#3a2614}
 .nick input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
@@ -83,7 +89,7 @@ kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0
   .touch .g{flex-direction:column;grid-row:1}
   .touch .g:first-child{grid-column:1}.touch .g:last-child{grid-column:3}
   .stick{width:124px;height:124px}.pad{grid-template-columns:64px 64px}.touch .xb{width:64px;height:64px;font-size:26px}
-  .ov{gap:8px;padding:10px}.ov h2{font-size:30px}.ov p{font-size:15px}
+  .ov{gap:6px;padding:8px}.ov h2{font-size:24px}.ov p{font-size:14px}.row{gap:6px}.speed button{min-height:36px;padding:2px 12px}.nick input{min-height:38px}
   .ov button{min-height:44px;font-size:16px;padding:6px 14px}
 }
 @media(orientation:landscape) and (max-height:520px) and (pointer:fine){.touch{display:none}}
@@ -96,6 +102,7 @@ kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0
   <div class="play">
   <div class="crate"><div class="screen">
     <div class="stage"><canvas id="c" width="1600" height="900" aria-label="감자 배구 게임 화면"></canvas></div>
+    <div class="toast" id="toast" role="status" hidden></div>
     <div class="ov" id="ov">
       <h2 id="ovTitle">감자 배구</h2>
       <p id="ovText">왼쪽 감자가 당신이에요. 오른쪽 고구마를 이겨 보세요.</p>
@@ -116,6 +123,7 @@ kbd{font:inherit;display:inline-block;min-width:26px;text-align:center;padding:0
   <p class="rot">폰을 가로로 돌리면 화면이 더 크게 보여요</p>
 
   <div class="help">
+    <div class="card"><b>🎮 게임패드</b><br>듀얼센스·듀얼쇼크·Xbox 패드를 블루투스나 USB로 연결하고 <b>아무 버튼이나 한 번</b> 누르면 자동으로 잡혀요.<br>이동 왼쪽 스틱/십자키 · 점프 <kbd>✕</kbd><kbd>A</kbd> · 스파이크 <kbd>○</kbd><kbd>□</kbd><kbd>R1</kbd> · 일시정지 옵션<br><span style="opacity:.75">둘이 하기에서는 패드 두 개로 감자·고구마를 나눠 잡아요</span></div>
     <div class="card"><b>🥔 감자 (왼쪽)</b><br>이동 <kbd>A</kbd><kbd>D</kbd> · 점프 <kbd>W</kbd> · 스파이크 <kbd>S</kbd><br><span style="opacity:.75">혼자 할 때는 방향키도 돼요</span></div>
     <div class="card"><b>🍠 고구마 (오른쪽, 둘이 하기)</b><br>이동 <kbd>←</kbd><kbd>→</kbd> · 점프 <kbd>↑</kbd> · 스파이크 <kbd>↓</kbd></div>
     <div class="card"><b>📱 온라인 대결</b><br>한 명이 ‘방 만들기’를 누르면, 다른 기기의 ‘온라인 대결’ 목록에 그 방이 떠요. 눌러서 들어가면 바로 시작해요. 로그인 없이 이 페이지 링크만 있으면 돼요. 방장은 감자, 친구는 고구마예요.</div>
@@ -182,10 +190,18 @@ function start(m){
   resetRally();state='play';ov.hidden=true;
 }
 
+/* ---------- 게임 속도 (방장이 정함) ---------- */
+const SPEEDS=[.62,.8,1],SP_NAMES=['느림','보통','빠름'];
+const savedSpeed=()=>{try{const v=+localStorage.getItem('spud-speed');return v>=0&&v<=2&&localStorage.getItem('spud-speed')!==null?v:2}catch(e){return 2}};
+let speedLvl=savedSpeed();
+function speedPicker(label){return `<div class="speed" role="radiogroup" aria-label="게임 속도"><span>${label||'속도'}</span>`+SP_NAMES.map((n,i)=>`<button type="button" role="radio" data-sp="${i}" aria-checked="${i===speedLvl}">${n}</button>`).join('')+'</div>'}
+function bindSpeed(){document.querySelectorAll('.speed button').forEach(b=>b.onclick=()=>{speedLvl=+b.dataset.sp;try{localStorage.setItem('spud-speed',speedLvl)}catch(e){}
+  document.querySelectorAll('.speed button').forEach(x=>x.setAttribute('aria-checked',String(+x.dataset.sp===speedLvl)))})}
+
 /* ---------- 온라인 (WebRTC / PeerJS) ----------
    방장은 고정된 슬롯 ID(PREFIX+번호) 중 빈 곳을 차지하고, 참가자는 슬롯들을 훑어서 열린 방 목록을 만든다.
    경기 계산은 방장 기기에서 하고, 상태를 초당 30번 친구에게 보낸다. */
-const PREFIX='potato-vb-2611-',SLOTS=10,VER='web3';
+const PREFIX='potato-vb-2611-',SLOTS=10,VER='web5';
 const qs=new URLSearchParams(location.search),psrv=qs.get('ps');
 const PEER_OPTS=psrv?{host:psrv.split(':')[0],port:+(psrv.split(':')[1]||9000),path:'/',secure:false,debug:0}:{debug:0};
 let code='',remote=null,gin={},gj=0,gs=0,lastJ=0,lastS=0,sfxN=0,sfxF=0,seenSfx=-1,hostSeen=false,lastSt=-1;
@@ -208,7 +224,7 @@ function leaveNet(){
   token++;stopScan();
   const jc=joinConn,gc=guestConn,hp=hostPeer;joinConn=null;guestConn=null;hostPeer=null;remote=null;
   try{jc&&jc.close()}catch(e){}try{gc&&gc.close()}catch(e){}try{hp&&hp.destroy()}catch(e){}
-  if(online())mode=1;lastErr='';updateDiag();
+  if(online())mode=1;lastErr='';speedLvl=savedSpeed();updateDiag();
 }
 function ensureScanPeer(){
   if(scanPeer&&!scanPeer.destroyed&&scanPeer.open)return Promise.resolve(scanPeer);
@@ -230,7 +246,7 @@ function scan(){
   for(let n=1;n<=SLOTS;n++){
     const c=scanPeer.connect(PREFIX+n,{metadata:{k:'scan'},reliable:true});
     const to=setTimeout(()=>{try{c.close()}catch(e){}},6000);
-    c.on('data',d=>{if(d&&d.t==='info'){rooms[n]={name:String(d.name||'').slice(0,12),open:!!d.open,ts:Date.now()};renderRooms()}clearTimeout(to);setTimeout(()=>{try{c.close()}catch(e){}},200)});
+    c.on('data',d=>{if(d&&d.t==='info'){rooms[n]={name:String(d.name||'').slice(0,12),open:!!d.open,sp:[0,1,2].includes(d.sp)?d.sp:2,ts:Date.now()};renderRooms()}clearTimeout(to);setTimeout(()=>{try{c.close()}catch(e){}},200)});
     c.on('error',()=>{});
   }
 }
@@ -238,8 +254,8 @@ function onlineMenu(msg){
   if(online())leaveNet();state='menu';onlineOpen=true;roomsKey='';
   ovTitle.textContent='온라인 대결';
   ovText.textContent=msg||'방을 만들면 다른 기기의 목록에 떠요. 목록에서 방을 누르면 들어가요.';
-  ovBtns.innerHTML='<label class="nick">내 이름 <input id="nickIn" maxlength="12" autocomplete="nickname"></label><button id="mkRoom">방 만들기</button><button id="back" class="ghost">뒤로</button><div class="rooms" id="roomList"><p class="empty">열린 방을 찾는 중…</p></div>';
-  const ni=document.getElementById('nickIn');ni.value=myName;
+  ovBtns.innerHTML='<label class="nick">내 이름 <input id="nickIn" maxlength="12" autocomplete="nickname"></label>'+speedPicker('방 속도')+'<button id="mkRoom">방 만들기</button><button id="back" class="ghost">뒤로</button><div class="rooms" id="roomList"><p class="empty">열린 방을 찾는 중…</p></div>';
+  const ni=document.getElementById('nickIn');ni.value=myName;bindSpeed();
   document.getElementById('mkRoom').onclick=()=>{setName(ni.value);hostGame()};
   document.getElementById('back').onclick=menu;
   ov.hidden=false;
@@ -253,12 +269,12 @@ function renderRooms(){
   const now=Date.now(),info=Object.entries(rooms).filter(([,r])=>now-r.ts<12000).map(([n,r])=>({n,...r}));
   const ok=scanPeer&&scanPeer.open;
   const status=`${VER} · 연결 서버 ${ok?'접속됨':'접속 중…'}${lastErr&&lastErr!=='peer-unavailable'?' · 오류: '+lastErr:''}`;
-  const key=JSON.stringify(info.map(r=>[r.n,r.name,r.open]))+status;if(key===roomsKey)return;roomsKey=key;
+  const key=JSON.stringify(info.map(r=>[r.n,r.name,r.open,r.sp]))+status;if(key===roomsKey)return;roomsKey=key;
   el.replaceChildren();
   if(!info.length){const e=document.createElement('p');e.className='empty';e.textContent=ok?'열린 방이 없어요. 다른 기기에서 방을 만들면 몇 초 안에 여기에 떠요.':'열린 방을 찾는 중…';el.appendChild(e)}
   for(const r of info){
     const b=document.createElement('button');b.className=r.open?'room':'room busy';b.disabled=!r.open;
-    b.textContent=r.open?`🥔 ${short(r.name||'이름 없음')}님의 방 — 들어가기`:`${short(r.name||'이름 없음')}님의 방 — 게임 중`;
+    b.textContent=r.open?`🥔 ${short(r.name||'이름 없음')}님의 방 · ${SP_NAMES[r.sp]} — 들어가기`:`${short(r.name||'이름 없음')}님의 방 — 게임 중`;
     b.onclick=()=>{const ni=document.getElementById('nickIn');setName(ni?ni.value:myName);joinGame(r.n)};el.appendChild(b);
   }
   const st=document.createElement('small');st.textContent=status;el.appendChild(st);
@@ -293,7 +309,7 @@ function onHostConn(p,c){
   c.on('error',()=>{});
   c.on('open',()=>{
     if(hostPeer!==p){try{c.close()}catch(e){}return}
-    if(k==='scan'){c.send({t:'info',name:myName,open:!guestConn});setTimeout(()=>{try{c.close()}catch(e){}},1500);return}
+    if(k==='scan'){c.send({t:'info',name:myName,open:!guestConn,sp:speedLvl});setTimeout(()=>{try{c.close()}catch(e){}},1500);return}
     if(k!=='join'){try{c.close()}catch(e){}return}
     if(guestConn){c.send({t:'full'});setTimeout(()=>{try{c.close()}catch(e){}},500);return}
     lastGx=Date.now();guestConn=c;guestName=String((c.metadata&&c.metadata.name)||'').slice(0,12);remote=null;
@@ -317,7 +333,7 @@ function hostRestart(){score=[0,0];server=0;resetRally();if(guestConn){state='pl
 const R=v=>Math.round(v*10)/10;
 function pack(){
   const a=[];for(const p of P)a.push(R(p.x),R(p.y),R(p.vx),R(p.vy),p.spikeT,R(p.squash));
-  a.push(R(ball.x),R(ball.y),R(ball.vx),R(ball.vy),R(ball.rot),score[0],score[1],{play:1,point:2,over:3}[state]||0,freeze,server,flashT,flash.startsWith('감자')?0:1,sfxN,sfxF);
+  a.push(R(ball.x),R(ball.y),R(ball.vx),R(ball.vy),R(ball.rot),score[0],score[1],{play:1,point:2,over:3}[state]||0,freeze,server,flashT,flash.startsWith('감자')?0:1,sfxN,sfxF,speedLvl);
   return a;
 }
 function netWatch(){
@@ -361,7 +377,7 @@ function applyState(s){
   ball.x=s[k++];ball.y=s[k++];ball.vx=s[k++];ball.vy=s[k++];ball.rot=s[k++];
   const sc=[s[k++],s[k++]],st=s[k++];
   freeze=s[k++];server=s[k++];flashT=s[k++];flash=s[k++]===0?'감자 득점!':'고구마 득점!';
-  const sn=s[k++],sf=s[k++];
+  const sn=s[k++],sf=s[k++];if([0,1,2].includes(s[k]))speedLvl=s[k];
   if(sn!==seenSfx){if(seenSfx>=0)beep(sf,.09);seenSfx=sn}
   if(sc[0]+sc[1]>score[0]+score[1])puff();
   score=sc;
@@ -391,20 +407,22 @@ function resetRally(){
   P[0].x=200;P[1].x=600;for(const p of P){p.y=GROUND;p.vx=p.vy=0;p.ground=true;p.spikeT=0;p.cd=0}
   ball.x=server===0?186:614;ball.y=110;ball.vx=ball.vy=0;freeze=55;
 }
+let pausedFrom='play';
 function togglePause(){
   if(mode!==1&&mode!==2)return;
-  if(state==='play'){state='pause';showOv('잠깐 쉬어요','감자도 숨 좀 돌리는 중',[['계속하기',()=>{state='play';ov.hidden=true}],['처음으로',menu,'alt']])}
-  else if(state==='pause'){state='play';ov.hidden=true}
+  if(state==='play'||state==='point'){pausedFrom=state;state='pause';showOv('잠깐 쉬어요','감자도 숨 좀 돌리는 중',[['계속하기',()=>{state=pausedFrom;ov.hidden=true}],['처음으로',menu,'alt']])}
+  else if(state==='pause'){state=pausedFrom;ov.hidden=true}
 }
 function showOv(title,text,btns){
   ovTitle.textContent=title;ovText.textContent=text;ovBtns.innerHTML='';
   btns.forEach(([l,f,c])=>{const b=document.createElement('button');b.textContent=l;if(c)b.className=c;b.onclick=f;ovBtns.appendChild(b)});
   ov.hidden=false;ovBtns.querySelector('button')?.focus();
 }
-function menu(){onlineOpen=false;if(online())leaveNet();state='menu';showOv('감자 배구','왼쪽 감자가 당신이에요. 오른쪽 고구마를 이겨 보세요.',[['혼자 하기 (vs 컴퓨터)',()=>start(1)],['둘이 하기',()=>start(2),'alt'],['온라인 대결 (다른 폰)',()=>onlineMenu(),'ghost']])}
+function menu(){onlineOpen=false;if(online())leaveNet();state='menu';showOv('감자 배구','왼쪽 감자가 당신이에요. 오른쪽 고구마를 이겨 보세요.',[['혼자 하기 (vs 컴퓨터)',()=>start(1)],['둘이 하기',()=>start(2),'alt'],['온라인 대결 (다른 폰)',()=>onlineMenu(),'ghost']]);ovBtns.insertAdjacentHTML('afterbegin',speedPicker());bindSpeed()}
 document.getElementById('b1').onclick=()=>start(1);document.getElementById('b2').onclick=()=>start(2);document.getElementById('b3').onclick=()=>onlineMenu();
 
 function scorePoint(winner){
+  rumble(220,.5);
   score[winner]++;server=winner;state='point';pointT=80;
   flash=winner===0?'감자 득점!':'고구마 득점!';flashT=80;sfx(winner===0?660:520,.25,'square',.08);
   puff();
@@ -448,7 +466,7 @@ function hitPlayer(p){
   ball.x=cx+nx*(PR+BR+1);ball.y=cy+ny*(PR+BR+1);
   const dir=p.side===0?1:-1;
   if(p.spikeT>0&&!p.ground&&ball.y<p.y-30){
-    ball.vx=dir*(15+Math.random()*2);ball.vy=3.5+Math.random()*2.5;p.spikeT=0;sfx(880,.12,'sawtooth',.08);p.hop=8;
+    ball.vx=dir*(15+Math.random()*2);ball.vy=3.5+Math.random()*2.5;p.spikeT=0;sfx(880,.12,'sawtooth',.08);if(mode!=='guest')rumble(120,.8);p.hop=8;
     for(let i=0;i<8;i++)parts.push({x:ball.x,y:ball.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,l:20,spark:1});
   }else{
     ball.vx=nx*9+p.vx*.45;ball.vy=Math.min(ny*11-5,-8.5);sfx(440,.07);
@@ -573,7 +591,7 @@ function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.font='42px Jua, sans-serif';ctx.lineWidth=6;ctx.strokeStyle='rgba(60,35,15,.55)';
   for(const [i,x,c] of [[0,330,'#ffe08a'],[1,470,'#ffb3cf']]){ctx.strokeText(score[i],x,40);ctx.fillStyle=c;ctx.fillText(score[i],x,40)}
-  ctx.font=F(16);ctx.fillStyle='rgba(40,30,20,.6)';ctx.fillText(`${WIN}점 선승`,400,k>1.3?80:40);
+  ctx.font=F(16);ctx.fillStyle='rgba(40,30,20,.6)';ctx.fillText(`${WIN}점 선승 · ${SP_NAMES[speedLvl]}`,400,k>1.02?58+16*k:40);
   if(flashT>0){const a=Math.min(1,flashT/20),s=1+(80-flashT<10?(10-(80-flashT))*.05:0);
     ctx.save();ctx.globalAlpha=a;ctx.translate(400,150);ctx.scale(s,s);ctx.font='48px Jua, sans-serif';ctx.lineWidth=8;ctx.strokeStyle='#6b4524';ctx.strokeText(flash,0,0);ctx.fillStyle='#fff';ctx.fillText(flash,0,0);ctx.restore()}
   if(mode==='host'||mode==='guest'){
@@ -595,12 +613,50 @@ function draw(){
 }
 
 /* ---------- 루프 ---------- */
+/* ---------- 게임패드 (Xbox·듀얼쇼크·듀얼센스 등) ----------
+   표준 배치 기준: 왼쪽 스틱/십자키 이동, ✕·A·십자키 위 = 점프, ○·□·B·X·R1·R2 = 스파이크, 옵션/스타트 = 일시정지 */
+const toastEl=document.getElementById('toast');let toastT=0;
+function toast(msg){toastEl.textContent=msg;toastEl.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>toastEl.hidden=true,2600)}
+const padPrev={};
+const padName=id=>/dualsense|0ce6/i.test(id)?'듀얼센스':/dualshock|wireless controller|054c/i.test(id)?'듀얼쇼크':/xbox|xinput|045e/i.test(id)?'Xbox 패드':'게임패드';
+addEventListener('gamepadconnected',e=>{toast(`🎮 ${padName(e.gamepad.id)} 연결됨`);initAudio()});
+addEventListener('gamepaddisconnected',e=>{toast(`🎮 ${padName(e.gamepad.id)} 연결 끊김`);const pr=padPrev[e.gamepad.index];if(pr){for(const k of ['left','right','jump','spike'])if(pr[k])press(pr.pi,k,false)}delete padPrev[e.gamepad.index]});
+function rumble(ms,strong){try{for(const g of navigator.getGamepads?navigator.getGamepads():[]){if(g&&g.vibrationActuator)g.vibrationActuator.playEffect('dual-rumble',{duration:ms,strongMagnitude:strong,weakMagnitude:strong*.6}).catch(()=>{})}}catch(e){}}
+function pollPads(){
+  let pads=[];try{pads=navigator.getGamepads?[...navigator.getGamepads()].filter(Boolean):[]}catch(e){return}
+  pads.forEach((g,order)=>{
+    const b=i=>!!(g.buttons[i]&&g.buttons[i].pressed),ax=g.axes[0]||0,ay=g.axes[1]||0;
+    const cur={left:ax<-.4||b(14),right:ax>.4||b(15),jump:b(0)||b(12)||ay<-.75,spike:b(1)||b(2)||b(5)||b(7),start:b(9),down:b(13)||ay>.75};
+    const pr=padPrev[g.index]||{};
+    // 메뉴 화면: 십자키로 버튼 이동, ✕/A로 누르기
+    if(!ov.hidden){
+      if(cur.start&&!pr.start&&state==='pause'){togglePause();padPrev[g.index]={...cur,pi:pr.pi,inMenu:true};return}
+      if(!pr.inMenu&&pr.pi!==undefined)for(const k of ['left','right','jump','spike'])if(pr[k])press(pr.pi,k,false);
+      const def=ov.querySelector('#ovBtns > button:not([disabled])');
+      const btns=[...ov.querySelectorAll('button:not([disabled])')];
+      const move=d=>{const i=btns.indexOf(document.activeElement);(i<0?(def||btns[0]):btns[(i+d+btns.length)%btns.length])?.focus()};
+      if(cur.down&&!pr.down)move(1);
+      if((cur.jump&&!pr.jump)&&!(b(12)||ay<-.75))(btns.includes(document.activeElement)?document.activeElement:(def||btns[0]))?.click();
+      if((b(12)||ay<-.75)&&!pr.jump)move(-1);
+      if(cur.right&&!pr.right)move(1);if(cur.left&&!pr.left)move(-1);
+      padPrev[g.index]={...cur,pi:pr.pi,inMenu:true};return;
+    }
+    if(cur.start&&!pr.start)togglePause();
+    const pi=mode===2?Math.min(order,1):0;
+    if(pr.inMenu){for(const k of ['left','right','jump','spike'])pr[k]=false;pr.inMenu=false;pr.pi=pi}
+    if(pr.pi!==undefined&&pr.pi!==pi){for(const k of ['left','right','jump','spike'])if(pr[k])press(pr.pi,k,false);for(const k in pr)pr[k]=false}
+    for(const k of ['left','right','jump','spike'])if(cur[k]!==!!pr[k])press(pi,k,cur[k]);
+    padPrev[g.index]={...cur,pi};
+  });
+}
 let last=performance.now(),acc=0;
 function loop(now){
-  acc+=Math.min(100,now-last);last=now;
+  pollPads();
+  acc+=Math.min(100,now-last)*SPEEDS[speedLvl];last=now;
   while(acc>=1000/60){if(state!=='pause')update();acc-=1000/60}
   draw();requestAnimationFrame(loop);
 }
+menu();
 requestAnimationFrame(loop);
 document.fonts?.ready.then(()=>draw());
 }
