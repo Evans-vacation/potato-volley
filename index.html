@@ -134,7 +134,7 @@ const keys={};
 const map1={KeyA:[0,'left'],KeyD:[0,'right'],KeyW:[0,'jump'],KeyS:[0,'spike']};
 const map2={ArrowLeft:[1,'left'],ArrowRight:[1,'right'],ArrowUp:[1,'jump'],ArrowDown:[1,'spike']};
 function press(pi,k,down){
-  if(mode==='guest'){if(down&&!gin[k]){if(k==='jump')gj++;if(k==='spike')gs++}gin[k]=down;sendGuest();return}
+  if(mode==='guest'){if(down&&!gin[k]){if(k==='jump'){gj++;P[1].wantJump=6}if(k==='spike'){gs++;P[1].wantSpike=6}}gin[k]=down;sendGuest();return}
   const p=P[pi];if(down&&!p.in[k]&&k==='spike')p.wantSpike=6;if(down&&!p.in[k]&&k==='jump')p.wantJump=6;p.in[k]=down}
 function onKey(e,down){
   if(e.code==='Escape'&&down){togglePause();return}
@@ -164,12 +164,12 @@ function start(m){
 /* ---------- 온라인 (WebRTC / PeerJS) ----------
    방장은 고정된 슬롯 ID(PREFIX+번호) 중 빈 곳을 차지하고, 참가자는 슬롯들을 훑어서 열린 방 목록을 만든다.
    경기 계산은 방장 기기에서 하고, 상태를 초당 30번 친구에게 보낸다. */
-const PREFIX='potato-vb-2611-',SLOTS=10,VER='web1';
+const PREFIX='potato-vb-2611-',SLOTS=10,VER='web2';
 const qs=new URLSearchParams(location.search),psrv=qs.get('ps');
 const PEER_OPTS=psrv?{host:psrv.split(':')[0],port:+(psrv.split(':')[1]||9000),path:'/',secure:false,debug:0}:{debug:0};
 let code='',remote=null,gin={},gj=0,gs=0,lastJ=0,lastS=0,sfxN=0,sfxF=0,seenSfx=-1,hostSeen=false,lastSt=-1;
 let hostPeer=null,guestConn=null,guestName='',scanPeer=null,scanP=null,scanTimer=0,rooms={},onlineOpen=false,roomsKey='',hostName='',joinConn=null,lastErr='',token=0;
-let lastRx=0,lastGx=0;
+let lastRx=0,lastGx=0,seqH=0,seqG=0,lastHn=-1,lastGn=-1;
 let myName='';try{myName=localStorage.getItem('spud-nick')||''}catch(e){}
 const short=n=>n.length>8?n.slice(0,8)+'…':n;
 const hasPeer=()=>typeof window.Peer==='function';
@@ -276,7 +276,8 @@ function onHostConn(p,c){
     if(k!=='join'){try{c.close()}catch(e){}return}
     if(guestConn){c.send({t:'full'});setTimeout(()=>{try{c.close()}catch(e){}},500);return}
     lastGx=Date.now();guestConn=c;guestName=String((c.metadata&&c.metadata.name)||'').slice(0,12);remote=null;
-    c.on('data',d=>{if(guestConn!==c||!d||d.t!=='i')return;lastGx=Date.now();if(!remote){lastJ=+d.j||0;lastS=+d.s||0}remote=d});
+    lastGn=-1;
+    c.on('data',d=>{if(guestConn!==c||!d||d.t!=='i')return;lastGx=Date.now();const n=+d.n;if(Number.isFinite(n)){if(n<=lastGn)return;lastGn=n}if(!remote){lastJ=+d.j||0;lastS=+d.s||0}remote=d});
     c.on('close',()=>{if(guestConn!==c)return;guestConn=null;remote=null;
       if(mode==='host'&&state!=='wait'){state='wait';showWait('친구 연결이 끊겼어요. 다시 들어오면 새 경기를 시작해요.')}updateDiag()});
     if(state==='wait'||state==='over'){score=[0,0];server=0;resetRally();state='play';ov.hidden=true}
@@ -304,21 +305,22 @@ function netWatch(){
     if(state!=='wait'){state='wait';showWait('친구 연결이 끊겼어요. 다시 들어오면 새 경기를 시작해요.')}updateDiag()}
   if(mode==='guest'&&joinConn&&hostSeen&&now-lastRx>5000){const c=joinConn;joinConn=null;try{c.close()}catch(e){}
     state='gwait';showOv('방장과 연결이 끊겼어요','방장이 나갔거나, 화면이 꺼졌거나, 연결이 불안정해요.',[['방 목록',()=>onlineMenu()],leaveBtn]);updateDiag()}
-  if(mode==='guest'&&t%45===0)sendGuest();
+  if(mode==='guest'&&t%6===0)sendGuest();
 }
-function hostSend(){if(mode==='host'&&guestConn&&guestConn.open&&t%2===0){try{guestConn.send({t:'s',s:pack()})}catch(e){}}}
-function sendGuest(){if(mode==='guest'&&joinConn&&joinConn.open){try{joinConn.send({t:'i',l:gin.left?1:0,r:gin.right?1:0,j:gj,s:gs})}catch(e){}}}
+function hostSend(){if(mode==='host'&&guestConn&&guestConn.open){try{guestConn.send({t:'s',n:seqH++,s:pack()})}catch(e){}}}
+function sendGuest(){if(mode==='guest'&&joinConn&&joinConn.open){try{joinConn.send({t:'i',n:seqG++,l:gin.left?1:0,r:gin.right?1:0,j:gj,s:gs})}catch(e){}}}
 function joinGame(n){
   onlineOpen=false;stopScan();initAudio();
   if(!scanPeer||!scanPeer.open)return onlineMenu('아직 연결 서버에 접속 중이에요. 잠시 후 다시 눌러 주세요.');
   const my=++token;
   code=String(n);hostName=(rooms[n]&&rooms[n].name)||'';mode='guest';state='gwait';hostSeen=false;gin={};gj=gs=0;lastSt=-1;seenSfx=-1;score=[0,0];lastErr='';
   showOv(`${short(hostName||'방장')}님의 방`,'들어가는 중…',[leaveBtn]);updateDiag();
-  const c=scanPeer.connect(PREFIX+n,{metadata:{k:'join',name:myName},reliable:true});joinConn=c;
+  lastHn=-1;
+  const c=scanPeer.connect(PREFIX+n,{metadata:{k:'join',name:myName},reliable:false});joinConn=c;
   c.on('error',()=>{});
   c.on('open',()=>{if(joinConn!==c)return;ovText.textContent='연결됐어요! 곧 시작해요.';sendGuest();updateDiag()});
   c.on('data',d=>{if(joinConn!==c||!d)return;lastRx=Date.now();
-    if(d.t==='s'){hostSeen=true;applyState(d.s)}
+    if(d.t==='s'){const n=+d.n;if(Number.isFinite(n)){if(n<=lastHn)return;lastHn=n}hostSeen=true;applyState(d.s)}
     else if(d.t==='full')showOv('방이 꽉 찼어요','다른 사람이 먼저 들어갔어요.',[['방 목록',()=>onlineMenu()],leaveBtn]);
   });
   c.on('close',()=>{if(joinConn!==c)return;joinConn=null;updateDiag();
@@ -328,7 +330,13 @@ function joinGame(n){
 function applyState(s){
   if(!Array.isArray(s)||s.length<26||!s.every(Number.isFinite))return;
   let k=0;
-  for(const p of P){p.x=s[k++];p.y=s[k++];p.vx=s[k++];p.vy=s[k++];p.spikeT=s[k++];p.squash=s[k++];p.ground=p.y>=GROUND-.5}
+  for(let i=0;i<2;i++){const p=P[i],x=s[k++],y=s[k++],vx=s[k++],vy=s[k++],sp=s[k++],sq=s[k++];
+    if(mode==='guest'&&i===1&&state==='gplay'){ // 내 고구마는 내 입력으로 먼저 움직이고, 방장 값과 크게 어긋날 때만 맞춤
+      const moving=gin.left||gin.right;
+      if(Math.abs(x-p.x)>90)p.x=x;else if(!moving&&p.ground)p.x+=(x-p.x)*.2;
+      if(Math.abs(y-p.y)>140){p.y=y;p.vy=vy}
+      continue}
+    p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.spikeT=sp;p.squash=sq;p.ground=p.y>=GROUND-.5}
   ball.x=s[k++];ball.y=s[k++];ball.vx=s[k++];ball.vy=s[k++];ball.rot=s[k++];
   const sc=[s[k++],s[k++]],st=s[k++];
   freeze=s[k++];server=s[k++];flashT=s[k++];flash=s[k++]===0?'감자 득점!':'고구마 득점!';
@@ -346,8 +354,14 @@ function applyState(s){
 }
 function guestStep(){
   if(state!=='gplay')return;
-  for(const p of P){p.x+=p.vx;p.vy+=GP;p.y+=p.vy;if(p.y>=GROUND){p.y=GROUND;p.vy=0;p.ground=true}else p.ground=false;
+  const q=P[1];
+  q.vx=(gin.right?6.2:0)-(gin.left?6.2:0);
+  if(q.wantJump>0){q.wantJump--;if(q.ground){q.vy=-16.2;q.ground=false;q.wantJump=0}}
+  if(q.wantSpike>0){q.wantSpike--;if(!q.ground&&q.spikeT===0){q.spikeT=14;q.wantSpike=0}}
+  if(q.spikeT>0)q.spikeT--;
+  for(const p of P){const was=p.ground;p.x+=p.vx;p.vy+=GP;p.y+=p.vy;if(p.y>=GROUND){if(!was&&p===q)p.squash=1;p.y=GROUND;p.vy=0;p.ground=true}else p.ground=false;
     p.squash*=.82;if(p.vx&&p.ground)p.walk+=.35}
+  q.x=Math.max(NX+6+PR,Math.min(W-PR,q.x));
   if(freeze>0)freeze--;else{ball.vy+=GB;ball.x+=ball.vx;ball.y+=ball.vy;ball.rot+=ball.vx*.04;
     ball.x=Math.max(BR,Math.min(W-BR,ball.x));ball.y=Math.max(BR,Math.min(GROUND-BR,ball.y))}
 }
