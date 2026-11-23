@@ -139,7 +139,8 @@ const W=800,H=450,GROUND=392,NX=400,NTOP=GROUND-132,BR=20,PR=40,WIN=11;
 const GB=0.38,GP=0.85;
 const ov=document.getElementById('ov'),ovTitle=document.getElementById('ovTitle'),ovText=document.getElementById('ovText'),ovBtns=document.getElementById('ovBtns');
 let mode=1,state='menu',score=[0,0],server=0,freeze=0,pointT=0,flash='',flashT=0,parts=[],t=0;
-const mk=(x,side)=>({x,y:GROUND,vx:0,vy:0,side,ground:true,spikeT:0,squash:0,walk:0,cd:0,hop:0,in:{}});
+const mk=(x,side)=>({x,y:GROUND,vx:0,vy:0,side,ground:true,spikeT:0,squash:0,walk:0,cd:0,hop:0,hitT:0,hitK:0,in:{}});
+const HIT=14;
 const P=[mk(200,0),mk(600,1)];
 const ball={x:200,y:120,vx:0,vy:0,rot:0};
 
@@ -201,7 +202,7 @@ function bindSpeed(){document.querySelectorAll('.speed button').forEach(b=>b.onc
 /* ---------- 온라인 (WebRTC / PeerJS) ----------
    방장은 고정된 슬롯 ID(PREFIX+번호) 중 빈 곳을 차지하고, 참가자는 슬롯들을 훑어서 열린 방 목록을 만든다.
    경기 계산은 방장 기기에서 하고, 상태를 초당 30번 친구에게 보낸다. */
-const PREFIX='potato-vb-2611-',SLOTS=10,VER='web5';
+const PREFIX='potato-vb-2611-',SLOTS=10,VER='web6';
 const qs=new URLSearchParams(location.search),psrv=qs.get('ps');
 const PEER_OPTS=psrv?{host:psrv.split(':')[0],port:+(psrv.split(':')[1]||9000),path:'/',secure:false,debug:0}:{debug:0};
 let code='',remote=null,gin={},gj=0,gs=0,lastJ=0,lastS=0,sfxN=0,sfxF=0,seenSfx=-1,hostSeen=false,lastSt=-1;
@@ -333,7 +334,7 @@ function hostRestart(){score=[0,0];server=0;resetRally();if(guestConn){state='pl
 const R=v=>Math.round(v*10)/10;
 function pack(){
   const a=[];for(const p of P)a.push(R(p.x),R(p.y),R(p.vx),R(p.vy),p.spikeT,R(p.squash));
-  a.push(R(ball.x),R(ball.y),R(ball.vx),R(ball.vy),R(ball.rot),score[0],score[1],{play:1,point:2,over:3}[state]||0,freeze,server,flashT,flash.startsWith('감자')?0:1,sfxN,sfxF,speedLvl);
+  a.push(R(ball.x),R(ball.y),R(ball.vx),R(ball.vy),R(ball.rot),score[0],score[1],{play:1,point:2,over:3}[state]||0,freeze,server,flashT,flash.startsWith('감자')?0:1,sfxN,sfxF,speedLvl,P[0].hitT,P[0].hitK,P[1].hitT,P[1].hitK);
   return a;
 }
 function netWatch(){
@@ -378,6 +379,9 @@ function applyState(s){
   const sc=[s[k++],s[k++]],st=s[k++];
   freeze=s[k++];server=s[k++];flashT=s[k++];flash=s[k++]===0?'감자 득점!':'고구마 득점!';
   const sn=s[k++],sf=s[k++];if([0,1,2].includes(s[k]))speedLvl=s[k];
+  if(s.length>=31)for(let i=0;i<2;i++){const ht=s[27+i*2],hk=s[28+i*2]===1?1:0;
+    if(ht>P[i].hitT+3&&ht>=HIT-4)ring(ball.x,ball.y,hk);
+    if(ht>P[i].hitT+3||ht===0)P[i].hitT=ht;P[i].hitK=hk}
   if(sn!==seenSfx){if(seenSfx>=0)beep(sf,.09);seenSfx=sn}
   if(sc[0]+sc[1]>score[0]+score[1])puff();
   score=sc;
@@ -396,6 +400,7 @@ function guestStep(){
   if(q.wantJump>0){q.wantJump--;if(q.ground){q.vy=-16.2;q.ground=false;q.wantJump=0}}
   if(q.wantSpike>0){q.wantSpike--;if(!q.ground&&q.spikeT===0){q.spikeT=14;q.wantSpike=0}}
   if(q.spikeT>0)q.spikeT--;
+  for(const p of P)if(p.hitT>0)p.hitT--;
   for(const p of P){const was=p.ground;p.x+=p.vx;p.vy+=GP;p.y+=p.vy;if(p.y>=GROUND){if(!was&&p===q)p.squash=1;p.y=GROUND;p.vy=0;p.ground=true}else p.ground=false;
     p.squash*=.82;if(p.vx&&p.ground)p.walk+=.35}
   q.x=Math.max(NX+6+PR,Math.min(W-PR,q.x));
@@ -453,12 +458,14 @@ function stepPlayer(p){
   if(p.wantJump>0){p.wantJump--;if(p.ground){p.vy=-16.2;p.ground=false;p.wantJump=0;sfx(300,.07)}}
   if(p.wantSpike>0){p.wantSpike--;if(!p.ground&&p.spikeT===0){p.spikeT=14;p.wantSpike=0}}
   if(p.spikeT>0)p.spikeT--;
+  if(p.hitT>0)p.hitT--;
   p.vy+=GP;p.x+=p.vx;p.y+=p.vy;
   if(p.y>=GROUND){if(!p.ground)p.squash=1;p.y=GROUND;p.vy=0;p.ground=true}
   const lo=p.side===0?PR:NX+6+PR,hi=p.side===0?NX-6-PR:W-PR;
   p.x=Math.max(lo,Math.min(hi,p.x));
   p.squash*=.82;if(p.vx&&p.ground)p.walk+=.35;if(p.cd>0)p.cd--;
 }
+function ring(x,y,big){parts.push({x,y,vx:0,vy:0,l:big?16:12,ring:big?2:1})}
 function hitPlayer(p){
   const cx=p.x,cy=p.y-42,dx=ball.x-cx,dy=ball.y-cy,d=Math.hypot(dx,dy);
   if(d>=PR+BR||p.cd>0)return;
@@ -466,10 +473,10 @@ function hitPlayer(p){
   ball.x=cx+nx*(PR+BR+1);ball.y=cy+ny*(PR+BR+1);
   const dir=p.side===0?1:-1;
   if(p.spikeT>0&&!p.ground&&ball.y<p.y-30){
-    ball.vx=dir*(15+Math.random()*2);ball.vy=3.5+Math.random()*2.5;p.spikeT=0;sfx(880,.12,'sawtooth',.08);if(mode!=='guest')rumble(120,.8);p.hop=8;
+    ball.vx=dir*(15+Math.random()*2);ball.vy=3.5+Math.random()*2.5;p.spikeT=0;sfx(880,.12,'sawtooth',.08);if(mode!=='guest')rumble(120,.8);p.hop=8;p.hitT=HIT;p.hitK=1;ring(ball.x,ball.y,1);
     for(let i=0;i<8;i++)parts.push({x:ball.x,y:ball.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,l:20,spark:1});
   }else{
-    ball.vx=nx*9+p.vx*.45;ball.vy=Math.min(ny*11-5,-8.5);sfx(440,.07);
+    ball.vx=nx*9+p.vx*.45;ball.vy=Math.min(ny*11-5,-8.5);sfx(440,.07);p.hitT=HIT;p.hitK=0;ring(ball.x,ball.y,0);
   }
   p.cd=8;
 }
@@ -492,7 +499,7 @@ function stepBall(){
 }
 function update(){
   t++;
-  for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=.25;p.l--}parts=parts.filter(p=>p.l>0);
+  for(const p of parts){if(!p.ring){p.x+=p.vx;p.y+=p.vy;p.vy+=.25}p.l--}parts=parts.filter(p=>p.l>0);
   if(flashT>0)flashT--;
   if(online())netWatch();
   if(mode==='guest'){guestStep();return}
@@ -565,6 +572,28 @@ function drawSpud(p){
     ctx.fillStyle='#5aa83a';ctx.beginPath();ctx.ellipse(-8,-72,9,5,-.6,0,7);ctx.fill()}
   else{ctx.fillStyle='rgba(140,90,40,.55)';for(const [x,y,r] of [[22,-22,3],[-26,10,2.6],[28,16,2.2],[-14,-28,2]]){ctx.beginPath();ctx.ellipse(x,y,r,r*.7,0,0,7);ctx.fill()}
     ctx.fillStyle='#6ab04c';ctx.beginPath();ctx.ellipse(-4,-44,4,8,-.5,0,7);ctx.ellipse(5,-45,4,8,.5,0,7);ctx.fill()}
+  // 팔과 손: 평소엔 아래, 점프 중엔 살짝 위, 토스는 두 손을 머리 위로, 스파이크는 앞손을 뒤로 젖혔다가 내려침
+  {
+    const armC=sweet?'#6e2443':'#8a5a24',handC=sweet?'#d9719a':'#f3cd85',L=32,sy=sweet?2:-4,sx=sweet?27:33;
+    const swing=p.ground&&p.vx?Math.sin(p.walk)*.35:Math.sin(t*.05+p.side)*.06;
+    const ang=[0,0];// [앞손, 뒷손] — 아래에서부터 바깥쪽으로 젖힌 각도
+    const hp=p.hitT/HIT;
+    if(p.hitT>0&&p.hitK===0){const up=.45+2.3*Math.min(1,hp*1.6);ang[0]=up;ang[1]=up}
+    else if(p.hitT>0&&p.hitK===1){const f=Math.min(1,(1-hp)*3.2);ang[0]=3.35-2.75*f;ang[1]=1.1}
+    else if(p.spikeT>0&&!p.ground){ang[0]=3.35;ang[1]=1.15}
+    else if(!p.ground){ang[0]=1.25;ang[1]=1.05}
+    else{ang[0]=.38+swing;ang[1]=.38-swing}
+    for(const [i,side] of [[1,-face],[0,face]]){
+      const a=ang[i],hx=side*sx+side*Math.sin(a)*L,hy=sy+Math.cos(a)*L;
+      ctx.strokeStyle=armC;ctx.lineWidth=6;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(side*(sx-6),sy);ctx.quadraticCurveTo(side*sx+side*Math.sin(a)*L*.5+side*3,sy+Math.cos(a)*L*.5,hx,hy);ctx.stroke();
+      ctx.fillStyle=handC;ctx.strokeStyle=armC;ctx.lineWidth=2.2;ctx.beginPath();ctx.arc(hx,hy,i===0&&p.hitT>0&&p.hitK===1?9.5:7.5,0,7);ctx.fill();ctx.stroke();
+      if(i===0&&p.hitT>HIT-7&&p.hitK===1){ // 내려치는 손의 잔상: 손이 지나온 자리에 짧은 선 세 개
+        ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=3;
+        for(let j=1;j<=3;j++){const a2=a+j*.32,px=side*sx+side*Math.sin(a2)*L,py=sy+Math.cos(a2)*L;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+(hx-px)*.55,py+(hy-py)*.55);ctx.stroke()}
+      }
+    }
+  }
   // 얼굴
   const fy=sweet?-10:-8;
   for(const ex of [-11,11]){ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(ex+face*4,fy,7,8,0,0,7);ctx.fill();
@@ -608,7 +637,8 @@ function draw(){
   // 그물 망 (선수 앞에 겹치지 않도록 얇게)
   ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;
   drawBall();
-  for(const q of parts){ctx.globalAlpha=Math.min(1,q.l/20);ctx.fillStyle=q.spark?'#fff3a0':'#b07a45';ctx.beginPath();ctx.arc(q.x,q.y,q.spark?3:2.6,0,7);ctx.fill()}
+  for(const q of parts){if(q.ring){const m=q.ring===2?16:12,f=1-q.l/m;ctx.globalAlpha=q.l/m;ctx.strokeStyle=q.ring===2?'#fff3a0':'#fff';ctx.lineWidth=q.ring===2?4:3;ctx.beginPath();ctx.arc(q.x,q.y,BR+4+f*(q.ring===2?26:16),0,7);ctx.stroke();continue}
+    ctx.globalAlpha=Math.min(1,q.l/20);ctx.fillStyle=q.spark?'#fff3a0':'#b07a45';ctx.beginPath();ctx.arc(q.x,q.y,q.spark?3:2.6,0,7);ctx.fill()}
   ctx.globalAlpha=1;drawHUD();
 }
 
